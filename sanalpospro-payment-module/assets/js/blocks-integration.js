@@ -180,8 +180,12 @@
         }
 
         if (!window.__spproBlockMessageListenerAdded) {
+            const allowedOrigin = (settings && settings.payment_origin)
+                ? settings.payment_origin
+                : 'https://pay.paythor.com';
+
             window.addEventListener('message', function (event) {
-                if (event.origin !== 'https://pay.paythor.com') {
+                if (event.origin !== allowedOrigin) {
                     return;
                 }
 

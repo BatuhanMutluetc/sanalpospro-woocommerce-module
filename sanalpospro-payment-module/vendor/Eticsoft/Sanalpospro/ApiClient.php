@@ -33,7 +33,7 @@ class ApiClient
         $this->publicKey = $publicKey;
         $this->secretKey = $secretKey;
         $this->hash_time = microtime(true);
-        $this->hash_rand = rand(1000000, 9999999);
+        $this->hash_rand = random_int(1000000, 9999999);
         $this->hash = hash('sha256', $this->publicKey . $this->secretKey . $this->hash_time . $this->hash_rand);
         return $this;
     }
@@ -68,6 +68,9 @@ class ApiClient
 
     public function call($url, $method = 'GET', $params = [])
     {
+        // Reset headers to prevent accumulation across calls
+        $this->headers = [];
+
         $this->setHash($this->publicKey, $this->secretKey);
         $this->setHeaders();
         $ch = curl_init();
@@ -75,6 +78,10 @@ class ApiClient
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
         curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $method);
         curl_setopt($ch, CURLOPT_HTTPHEADER, $this->headers);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+        curl_setopt($ch, CURLOPT_USERAGENT, 'SanalPosPRO-WooCommerce/' . (defined('SPPRO_VERSION') ? SPPRO_VERSION : '1.0'));
         if ($method == 'POST') {
             curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($params));
         }
@@ -83,7 +90,12 @@ class ApiClient
         if (curl_errno($ch)) {
             $error = 'Error:' . curl_error($ch);
             curl_close($ch);
-            return $error;
+            return [
+                'status' => 'error',
+                'message' => $error,
+                'data' => [],
+                'details' => []
+            ];
         }
         
         $statusCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
@@ -96,12 +108,22 @@ class ApiClient
 
         $this->apiresponse = new ApiResponse($result);
         if (!$this->apiresponse->validate()) {
-            return $this->apiresponse->getError();
+            return [
+                'status' => 'error',
+                'message' => $this->apiresponse->getError(),
+                'data' => [],
+                'details' => []
+            ];
         }
         return $this->apiresponse->response;
     }
 
     public static function getInstanse()
+    {
+        return new self();
+    }
+
+    public static function getInstance()
     {
         return new self();
     }

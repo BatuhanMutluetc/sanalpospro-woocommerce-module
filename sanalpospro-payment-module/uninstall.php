@@ -13,7 +13,7 @@ if (!defined('WP_UNINSTALL_PLUGIN')) {
 }
 
 
-// Delete plugin options
+// Delete plugin options (legacy SPPRO_ prefix)
 delete_option('SPPRO_PUBLIC_KEY');
 delete_option('SPPRO_SECRET_KEY');
 delete_option('SPPRO_TOKEN');
@@ -23,6 +23,17 @@ delete_option('SPPRO_SHOWINSTALLMENTSTABS');
 delete_option('SPPRO_PAYMENTPAGETHEME');
 delete_option('SPPRO_INSTALLMENTS');
 delete_option('SANALPOSPRO_ACCESS_TOKEN');
+
+// Delete plugin options (current SANALPOSPRO_ prefix)
+delete_option('SANALPOSPRO_PUBLIC_KEY');
+delete_option('SANALPOSPRO_SECRET_KEY');
+delete_option('SANALPOSPRO_TOKEN');
+delete_option('SANALPOSPRO_ORDER_STATUS');
+delete_option('SANALPOSPRO_CURRENCY_CONVERT');
+delete_option('SANALPOSPRO_SHOWINSTALLMENTSTABS');
+delete_option('SANALPOSPRO_PAYMENTPAGETHEME');
+delete_option('SANALPOSPRO_INSTALLMENTS');
+delete_option('SANALPOSPRO_VERSION');
 
 // Delete WooCommerce specific options
 delete_option('woocommerce_sanalpospro_settings');

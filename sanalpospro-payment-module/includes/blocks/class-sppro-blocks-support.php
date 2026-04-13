@@ -113,6 +113,7 @@ final class SPPRO_Blocks_Support extends AbstractPaymentMethodType
             'title' => $this->gateway->get_title(),
             'description' => $this->gateway->get_description(),
             'supports' => array_values($this->gateway->supports),
+            'payment_origin' => defined('SPPRO_PAYMENT_ORIGIN') ? SPPRO_PAYMENT_ORIGIN : 'https://pay.paythor.com',
         );
     }
 }

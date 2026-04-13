@@ -47,11 +47,11 @@ class ApiResponse
 
     public function getMessage(): string
     {
-        return $this->response->message ?? '';
+        return $this->response['message'] ?? '';
     }
 
     public function getError(): string
     {
-        return $this->response->error ?? '';
+        return $this->response['error'] ?? $this->error ?? '';
     }
 }

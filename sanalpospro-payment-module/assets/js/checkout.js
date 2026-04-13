@@ -20,8 +20,12 @@
             return;
         }
 
+        const allowedOrigin = (typeof sppro_params !== 'undefined' && sppro_params.payment_origin)
+            ? sppro_params.payment_origin
+            : 'https://pay.paythor.com';
+
         window.addEventListener('message', function(event) {
-            if (event.origin !== 'https://pay.paythor.com') {
+            if (event.origin !== allowedOrigin) {
                 return;
             }
 

@@ -36,6 +36,9 @@ if (!defined('SPPRO_PLUGIN_DIR')) {
     define('SPPRO_PLUGIN_DIR', plugin_dir_path(__FILE__));
 }
 define('SPPRO_PLUGIN_FILE', __FILE__);
+if (!defined('SPPRO_PAYMENT_ORIGIN')) {
+    define('SPPRO_PAYMENT_ORIGIN', 'https://pay.paythor.com');
+}
 
 // Hook registration
 register_activation_hook(__FILE__, 'sppro_activate_plugin');
@@ -47,6 +50,7 @@ add_action('wp_ajax_sppro_internal_api_request', 'sppro_internal_api_request');
 add_action('wp_ajax_nopriv_sppro_internal_api_request', 'sppro_internal_api_request');
 add_action('wp_enqueue_scripts', 'sppro_enqueue_styles');
 add_action('admin_enqueue_scripts', 'sppro_enqueue_admin_assets');
+add_action('admin_init', 'sppro_check_theme_compatibility');
 
 
 /**
@@ -402,7 +406,11 @@ function sppro_setup_gateway_class()
                 }
 
 
-                $payment_link = $res['data']['payment_link'];
+                $payment_link = isset($res['data']['payment_link']) ? $res['data']['payment_link'] : '';
+
+                if (empty($payment_link)) {
+                    throw new Exception(__('Payment link could not be created. Please try again.', 'sanalpospro-payment-module'));
+                }
 
                 ob_start();
                 sppro_get_template('checkout/payment-iframe.php', array(
@@ -419,10 +427,14 @@ function sppro_setup_gateway_class()
                     'redirect_url' => $order_confirmation_url
                 ); 
             } catch (Exception $e) {
-                wc_add_notice($e->getMessage(), 'error');
+                if (defined('WP_DEBUG') && WP_DEBUG) {
+                    error_log('[SanalPosPRO] process_payment error: ' . $e->getMessage());
+                }
+                $user_message = __('An error occurred during payment processing. Please try again.', 'sanalpospro-payment-module');
+                wc_add_notice($user_message, 'error');
                 return array(
                     'result' => 'failure',
-                    'messages' => $e->getMessage()
+                    'messages' => $user_message
                 );
             }
         }
@@ -456,7 +468,7 @@ function sppro_setup_gateway_class()
 
             // Sanitize and validate input parameters
             $p_id = isset($_GET['p_id']) ? sanitize_text_field(wp_unslash($_GET['p_id'])) : null;
-            $id = empty($id) ? $order_id : $id;
+            $id = $order_id;
 
             
            
@@ -464,6 +476,14 @@ function sppro_setup_gateway_class()
 
             if (!$id) {
                 wp_die(esc_html__('Invalid payment ID.', 'sanalpospro-payment-module'));
+            }
+
+            // Idempotency guard: prevent duplicate processing of the same callback
+            $processed_token = $order->get_meta('_sppro_processed_token');
+            if (!empty($p_id) && $processed_token === $p_id) {
+                $checkOutUrl = $order->get_checkout_order_received_url();
+                wp_safe_redirect($checkOutUrl);
+                exit;
             }
 
           
@@ -484,7 +504,7 @@ function sppro_setup_gateway_class()
                 if ($response['status'] !== 'success') {
                     $order->update_status('failed', __('Payment failed', 'sanalpospro-payment-module'));
                     wc_add_notice($response['message'], 'error');
-                    wp_redirect(wc_get_checkout_url());
+                    wp_safe_redirect(wc_get_checkout_url());
                     exit;
                 }
 
@@ -496,26 +516,45 @@ function sppro_setup_gateway_class()
                         $response['data']['gateway']  ?? 'sanalpospro'
                     )
                 );
+
+                // Save processed token to prevent duplicate processing
+                if (!empty($p_id)) {
+                    $order->update_meta_data('_sppro_processed_token', $p_id);
+                }
+
                 $amount = $response['data']['amount'] ?? 0;
                 $original_total = $order->get_total();
                 $transaction_amount = $amount;
                 $tax_amount = $transaction_amount - $original_total;
-                $fee = new WC_Order_Item_Fee();
-                $fee->set_name(__('Commission Fee', 'sanalpospro-payment-module'));
-                $fee->set_amount($tax_amount);
-                $fee->set_total($tax_amount);
-                $fee->set_tax_class('');
-                $fee->set_tax_status('none');
-                $order->add_item($fee);
+
+                // Only add commission fee if not already added and amount is non-zero
+                $has_commission_fee = false;
+                foreach ($order->get_fees() as $existing_fee) {
+                    if ($existing_fee->get_name() === __('Commission Fee', 'sanalpospro-payment-module')) {
+                        $has_commission_fee = true;
+                        break;
+                    }
+                }
+
+                if (!$has_commission_fee && abs($tax_amount) > 0) {
+                    $fee = new WC_Order_Item_Fee();
+                    $fee->set_name(__('Commission Fee', 'sanalpospro-payment-module'));
+                    $fee->set_amount($tax_amount);
+                    $fee->set_total($tax_amount);
+                    $fee->set_tax_class('');
+                    $fee->set_tax_status('none');
+                    $order->add_item($fee);
+                }
+
                 $order->calculate_totals();
                 $order->save();
                 WC()->cart->empty_cart();
                 $checkOutUrl = $order->get_checkout_order_received_url();
-                return wp_redirect($checkOutUrl);
+                return wp_safe_redirect($checkOutUrl);
             } catch (Exception $e) {
                 $order->update_status('failed', $e->getMessage());
                 wc_add_notice($e->getMessage(), 'error');
-                wp_redirect(wc_get_checkout_url());
+                wp_safe_redirect(wc_get_checkout_url());
                 exit;
             }
         }
@@ -614,7 +653,8 @@ function sppro_setup_gateway_class()
 
             wp_localize_script('jquery', 'sppro_params', array(
                 'ajax_url' => admin_url('admin-ajax.php'),
-                'iapi_xfvv' => $nonce
+                'iapi_xfvv' => $nonce,
+                'payment_origin' => SPPRO_PAYMENT_ORIGIN
             ));
 
             wp_enqueue_style('sppro-payment-style', plugins_url('assets/css/payment.css', __FILE__), array(), SPPRO_VERSION);

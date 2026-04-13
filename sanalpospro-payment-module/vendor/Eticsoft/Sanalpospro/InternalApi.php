@@ -369,7 +369,7 @@ class InternalApi
         
         if ($shipping_total > 0) {
             $shippingItem = new CartItem(
-                'SHIP-' . rand(1000, 9999),
+                'SHIP-' . random_int(1000, 9999),
                 __('Shipping', 'sanalpospro-payment-module'),
                 'shipping',
                 $shipping_total,
@@ -400,7 +400,7 @@ class InternalApi
             
             
             $taxItem = new CartItem(
-                'TAX-TOTAL-' . rand(1000, 9999),
+                'TAX-TOTAL-' . random_int(1000, 9999),
                 __('Tax', 'sanalpospro-payment-module'),
                 'tax',
                 $total_tax,
@@ -479,7 +479,7 @@ class InternalApi
         $payer->setEmail($customer->get_billing_email());
         $payer->setPhone($phone);
         $payer->setAddress($payerAddress);
-        $payer->setIp($_SERVER['REMOTE_ADDR']);
+        $payer->setIp(function_exists('\WC_Geolocation::get_ip_address') ? \WC_Geolocation::get_ip_address() : (isset($_SERVER['REMOTE_ADDR']) ? sanitize_text_field(wp_unslash($_SERVER['REMOTE_ADDR'])) : '127.0.0.1'));
 
         $invoice = new Invoice();
         $invoice->setId($wc_cart->get_cart_hash());

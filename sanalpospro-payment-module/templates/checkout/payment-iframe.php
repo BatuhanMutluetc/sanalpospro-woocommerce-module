@@ -16,7 +16,7 @@ if (!defined('ABSPATH')) exit;
     <div class="sppro-iframe-wrapper">
         <div class="sppro-iframe-header">
             <div class="sppro-header-spacer"></div>
-            <button type="button" class="sppro-close-iframe" onclick="document.getElementById('payment-iframe-container').remove()">
+            <button type="button" class="sppro-close-iframe">
                 <?php esc_html_e('×', 'sanalpospro-payment-module'); ?>
             </button>
         </div>
@@ -31,9 +31,26 @@ if (!defined('ABSPATH')) exit;
                 sandbox="allow-scripts allow-top-navigation allow-same-origin allow-forms"
                 class="sppro-payment-iframe" 
                 frameborder="0" 
-                allow="payment" 
-                onload="document.querySelector('.sppro-loading').style.display = 'none';"
+                allow="payment"
             ></iframe>
         </div>
     </div>
-</div> 
+</div>
+<script>
+(function(){
+    var closeBtn = document.querySelector('#payment-iframe-container .sppro-close-iframe');
+    if (closeBtn) {
+        closeBtn.addEventListener('click', function() {
+            var container = document.getElementById('payment-iframe-container');
+            if (container) { container.remove(); }
+        });
+    }
+    var iframe = document.querySelector('#payment-iframe-container .sppro-payment-iframe');
+    if (iframe) {
+        iframe.addEventListener('load', function() {
+            var loading = document.querySelector('.sppro-loading');
+            if (loading) { loading.style.display = 'none'; }
+        });
+    }
+})();
+</script> 
